@@ -1,0 +1,27 @@
+# .github/workflows/deploy-orchestrator.yml
+name: Deploy Orchestrator
+
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio prometheus_client aioredis fastapi uvicorn
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v
+    - name: Build Docker image
+      run: |
+        docker build -t disaster-orchestrator .
+    - name: Push to registry (stub)
+      run: |
+        echo "Push to your registry here"

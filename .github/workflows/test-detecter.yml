@@ -1,0 +1,26 @@
+# .github/workflows/test-detecter.yml
+name: Test Detecter
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio prometheus_client scikit-learn numpy sqlalchemy[asyncio] requests
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v --tb=short
+    - name: Lint
+      run: |
+        pip install black flake8
+        black --check .
+        flake8 .

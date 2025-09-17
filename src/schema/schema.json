@@ -1,0 +1,315 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://disaster-intel.example.com/schemas/v1.0.0/schema.json",
+  "title": "Disaster Intelligence Data Model Schema",
+  "description": "Unified schema for raw posts, candidate reports, analysis outputs, and map hotspots.",
+  "version": "1.0.0",
+  "definitions": {
+    "RawPost": {
+      "type": "object",
+      "description": "Raw text ingested from news, social media, or user uploads.",
+      "properties": {
+        "id": { 
+          "type": "string",
+          "description": "Unique identifier for the raw post."
+        },
+        "content": { 
+          "type": "object",
+          "description": "Raw content object, typically {\"text\": \"...\"}."
+        },
+        "hash": { 
+          "type": "string", 
+          "pattern": "^[a-fA-F0-9]{64}$",
+          "description": "SHA-256 hash of content + previous hash for immutability."
+        },
+        "prev_hash": { 
+          "type": ["string", "null"], 
+          "pattern": "^[a-fA-F0-9]{64}$",
+          "description": "Hash of previous raw post for chain integrity."
+        },
+        "timestamp": { 
+          "type": "string", 
+          "format": "date-time",
+          "description": "Ingestion timestamp in ISO 8601 format."
+        }
+      },
+      "required": ["id", "content", "hash", "timestamp"],
+      "examples": [
+        {
+          "id": "123e4567-e89b-12d3-a456-426614174000",
+          "content": {"text": "Flood in Jakarta last night"},
+          "hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+          "prev_hash": null,
+          "timestamp": "2025-04-05T12:00:00Z"
+        }
+      ]
+    },
+
+    "Report": {
+      "type": "object",
+      "description": "Structured report extracted from raw text.",
+      "properties": {
+        "event_type": { 
+          "type": ["string", "null"],
+          "description": "Type of disaster/event (e.g., flood, fire, riot)."
+        },
+        "location": { 
+          "type": ["string", "null"],
+          "description": "Location of the event (city, region, or coordinates)."
+        },
+        "timestamp": { 
+          "type": ["string", "null"], 
+          "format": "date-time",
+          "description": "Event or report timestamp in ISO 8601 format."
+        },
+        "description": { 
+          "type": ["string", "null"],
+          "description": "Full textual description of the event."
+        },
+        "source": { 
+          "type": ["string", "null"],
+          "description": "Information source: news, social media, user upload, etc."
+        },
+        "media_urls": { 
+          "type": "array", 
+          "items": { "type": "string" }, 
+          "default": [],
+          "description": "List of media URLs (images, videos) associated with the report."
+        },
+        "reporter": { 
+          "type": ["string", "null"],
+          "description": "Name or ID of the original poster."
+        },
+        "confidence": { 
+          "type": ["number", "null"], 
+          "minimum": 0, 
+          "maximum": 1,
+          "description": "Confidence score between 0 and 1."
+        },
+        "veracity_flag": { 
+          "type": ["string", "null"], 
+          "enum": ["confirmed", "unconfirmed", "retracted", "unknown", null],
+          "description": "Veracity status of the report."
+        }
+      },
+      "required": ["description"],
+      "examples": [
+        {
+          "event_type": "flood",
+          "location": "Jakarta",
+          "timestamp": "2025-04-04T20:00:00Z",
+          "description": "Heavy flooding in downtown Jakarta submerged cars.",
+          "source": "twitter",
+          "media_urls": [],
+          "reporter": "user123",
+          "confidence": 0.85,
+          "veracity_flag": "confirmed"
+        }
+      ]
+    },
+
+    "EmotionScore": {
+      "type": "object",
+      "description": "Emotion classification score.",
+      "properties": {
+        "emotion": { 
+          "type": "string",
+          "description": "Emotion label (e.g., fear, anger, joy)."
+        },
+        "score": { 
+          "type": "number", 
+          "minimum": 0, 
+          "maximum": 1,
+          "description": "Confidence score for the emotion."
+        }
+      },
+      "required": ["emotion", "score"],
+      "examples": [
+        {"emotion": "fear", "score": 0.92},
+        {"emotion": "anger", "score": 0.78}
+      ]
+    },
+
+    "HumanHotspot": {
+      "type": "object",
+      "description": "Human emotional response hotspot.",
+      "properties": {
+        "location": { 
+          "type": ["string", "null"],
+          "description": "Location of the emotional response."
+        },
+        "timestamp": { 
+          "type": ["string", "null"], 
+          "format": "date-time",
+          "description": "Timestamp of the emotional response."
+        },
+        "emotions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/EmotionScore" },
+          "description": "List of emotion scores for this hotspot."
+        },
+        "panic_level": { 
+          "type": ["string", "null"], 
+          "enum": ["low", "medium", "high", null],
+          "description": "Overall panic level derived from emotions."
+        },
+        "affected_population_estimate": { 
+          "type": ["integer", "null"], 
+          "minimum": 0,
+          "description": "Estimated number of affected people."
+        }
+      },
+      "required": ["emotions"],
+      "examples": [
+        {
+          "location": "Jakarta",
+          "timestamp": "2025-04-04T20:00:00Z",
+          "emotions": [
+            {"emotion": "fear", "score": 0.92},
+            {"emotion": "sadness", "score": 0.65}
+          ],
+          "panic_level": "high",
+          "affected_population_estimate": 15000
+        }
+      ]
+    },
+
+    "DisasterHotspot": {
+      "type": "object",
+      "description": "Physical disaster hotspot.",
+      "properties": {
+        "location": { 
+          "type": ["string", "null"],
+          "description": "Location of the disaster."
+        },
+        "timestamp": { 
+          "type": ["string", "null"], 
+          "format": "date-time",
+          "description": "Timestamp of the disaster event."
+        },
+        "event_type": { 
+          "type": ["string", "null"],
+          "description": "Type of disaster event."
+        },
+        "severity": { 
+          "type": "string", 
+          "enum": ["very_high", "high", "medium", "low"],
+          "description": "Severity of the disaster event."
+        },
+        "risk_level": { 
+          "type": ["string", "null"], 
+          "enum": ["critical", "high", "medium", "low", "unknown", null],
+          "description": "Overall risk level for response teams."
+        },
+        "description_summary": { 
+          "type": ["string", "null"],
+          "description": "Short summary of the disaster event."
+        }
+      },
+      "required": ["severity"],
+      "examples": [
+        {
+          "location": "Jakarta",
+          "timestamp": "2025-04-04T20:00:00Z",
+          "event_type": "flood",
+          "severity": "high",
+          "risk_level": "high",
+          "description_summary": "Heavy flooding in downtown Jakarta."
+        }
+      ]
+    },
+
+    "CompositeHotspot": {
+      "type": "object",
+      "description": "Final clustered hotspot for map rendering.",
+      "properties": {
+        "latitude": { 
+          "type": "number", 
+          "minimum": -90, 
+          "maximum": 90,
+          "description": "Latitude coordinate in decimal degrees."
+        },
+        "longitude": { 
+          "type": "number", 
+          "minimum": -180, 
+          "maximum": 180,
+          "description": "Longitude coordinate in decimal degrees."
+        },
+        "aggregated_emotions": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 },
+          "description": "Aggregated emotion scores across all contributing reports."
+        },
+        "average_panic_level": { 
+          "type": "number", 
+          "minimum": 0, 
+          "maximum": 1,
+          "description": "Weighted average panic level across all reports."
+        },
+        "event_types": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "Unique event types contributing to this hotspot."
+        },
+        "severity_level": { 
+          "type": "string", 
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Highest severity level among contributing events."
+        },
+        "risk_level": { 
+          "type": "string", 
+          "enum": ["critical", "high", "medium", "low", "unknown"],
+          "description": "Overall risk level for response prioritization."
+        },
+        "contributing_reports": { 
+          "type": "integer", 
+          "minimum": 1,
+          "description": "Number of reports contributing to this hotspot."
+        }
+      },
+      "required": ["latitude", "longitude", "severity_level", "risk_level", "contributing_reports"],
+      "examples": [
+        {
+          "latitude": -6.2088,
+          "longitude": 106.8456,
+          "aggregated_emotions": {"fear": 0.85, "sadness": 0.62},
+          "average_panic_level": 0.78,
+          "event_types": ["flood"],
+          "severity_level": "high",
+          "risk_level": "high",
+          "contributing_reports": 12
+        }
+      ]
+    },
+
+    "MapJSON": {
+      "type": "object",
+      "description": "Final output for frontend map rendering.",
+      "properties": {
+        "hotspots": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CompositeHotspot" },
+          "description": "List of composite hotspots to display on the map."
+        }
+      },
+      "required": ["hotspots"],
+      "examples": [
+        {
+          "hotspots": [
+            {
+              "latitude": -6.2088,
+              "longitude": 106.8456,
+              "aggregated_emotions": {"fear": 0.85, "sadness": 0.62},
+              "average_panic_level": 0.78,
+              "event_types": ["flood"],
+              "severity_level": "high",
+              "risk_level": "high",
+              "contributing_reports": 12
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

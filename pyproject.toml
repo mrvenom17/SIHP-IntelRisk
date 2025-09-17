@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "disaster-intel-platform"
+version = "1.0.0"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "redis",
+    "pydantic",
+    "python-dotenv",
+    "prometheus_client",
+    "requests",
+    "transformers",
+    "torch",
+    "nltk",
+    "scikit-learn",
+    "numpy",
+    "langchain-google-genai",
+    "jsonschema",
+    "pytest",
+    "pytest-asyncio"
+]
