@@ -1,4 +1,4 @@
-# src/detecter/detecter.py
+# src/detecter/detecter_fixed.py
 import asyncio
 import logging
 import math
@@ -6,7 +6,7 @@ import time
 import requests
 from typing import List, Optional, Dict, Any, Tuple
 from prometheus_client import Histogram, Gauge, Counter as PrometheusCounter
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import datetime
 from functools import lru_cache
 import numpy as np
@@ -84,7 +84,7 @@ class GeoCoder:
         # Nominatim rate limit: 1 request per second
         now = time.time()
         if now - self.last_call_time < 1:
-            time.sleep(1 - (now - self.last_call_time))
+            time.sleep(1 - (now - self.last_call_time))  # FIXED: Use time.sleep instead of await
         self.last_call_time = now
 
         GEOCODING_REQUESTS.inc()

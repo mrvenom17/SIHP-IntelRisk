@@ -5,7 +5,7 @@ import time
 import json
 import hashlib
 from typing import List
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,8 @@ from redis.asyncio import Redis
 import prometheus_client as prom
 from prometheus_client import Counter as PrometheusCounter, Histogram
 import uvicorn
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from src.core.database import get_db, create_tables
 from src.core.models import (
@@ -61,6 +63,7 @@ redis = None
 
 @app.on_event("startup")
 async def startup():
+    await create_tables()
     global redis
     redis = Redis(host="localhost", port=6379, db=0, decode_responses=True)
     # Test connections
@@ -77,8 +80,12 @@ STREAMS = {
 
 BATCH_SIZE = 20
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
 @app.post("/api/ingest")
-async def ingest(contents: List[str], db: AsyncSession = Depends(get_db)):
+@limiter.limit("100/minute")
+async def ingest(request: Request, contents: List[str], db: AsyncSession = Depends(get_db)):
     prev = await db.execute(
         select(RawPost).order_by(RawPost.timestamp.desc()).limit(1)
     )
@@ -430,7 +437,7 @@ async def health():
 
 @app.get("/metrics")
 async def metrics():
-    return JSONResponse(prom.generate_latest().decode('utf-8'))
+    return Response(prom.generate_latest(), media_type="text/plain; version=0.0.4")
 
 # === Startup ===
 

@@ -1,4 +1,4 @@
-# src/extractor/extractor.py
+# src/extractor/extractor_fixed.py
 import asyncio
 import logging
 import re
@@ -202,7 +202,7 @@ class ExtractorA:
         """Remove Markdown code fences and clean JSON string"""
         if not text:
             return ""
-        
+
         # Strip ```json ... ``` or ``` ... ```
         if text.strip().startswith('```'):
             start = text.find('```')
@@ -211,10 +211,10 @@ class ExtractorA:
                 text = text[start + 3:end]
                 # Remove optional "json" after opening ```
                 text = text.lstrip('json').lstrip()
-        
+
         # Remove any remaining control characters except \n\t
         text = ''.join(ch for ch in text if ord(ch) >= 32 or ch in '\n\t')
-        
+
         return text.strip()
 
     async def extract_from_perplexity(self, query: str) -> Optional[Reports]:
@@ -229,12 +229,10 @@ class ExtractorA:
         normalized_text = self.normalize_relative_times(query)
         prompt_text = PERPLEXITY_PROMPT_TEMPLATE.format(text=normalized_text)
         payload = {
-            "model": "sonar",
+            "model": "sonar-pro",
             "messages": [
                 {"role": "user", "content": prompt_text}
-            ],
-            "max_tokens": 1000,
-            "temperature": 0.1
+            ]
         }
         try:
             response = await asyncio.get_event_loop().run_in_executor(
@@ -263,7 +261,7 @@ class ExtractorA:
             except ValidationError as e:
                 logger.warning(f"Perplexity JSON validation failed: {e}")
                 logger.debug(f"Failed JSON: {clean_json_str}")
-                
+
                 # Fallback: Create single report from plain text
                 logger.info("🔧 Creating single report from plain text")
                 single_report = {
@@ -287,7 +285,7 @@ class ExtractorA:
         except Exception as e:
             logger.error(f"Perplexity extraction error: {e}")
             return None
-    
+
     def _infer_event_type(self, text: str) -> str:
         text_lower = text.lower()
         if "flood" in text_lower:
@@ -310,8 +308,8 @@ class ExtractorA:
     def _infer_location(self, text: str) -> str:
         # Expand this list with more locations
         locations = [
-            "chennai", "andaman", "puri", "kerala", "mumbai", 
-            "odisha", "goa", "tamil nadu", "lakshadweep", 
+            "chennai", "andaman", "puri", "kerala", "mumbai",
+            "odisha", "goa", "tamil nadu", "lakshadweep",
             "visakhapatnam", "kolkata", "kanyakumari", "pondicherry"
         ]
         text_lower = text.lower()
@@ -322,7 +320,6 @@ class ExtractorA:
 
     async def extract_from_gemini(self, text: str) -> Optional[Reports]:
         """Async Gemini extraction with JSON cleaning"""
-        EXTRACTION_ATTEMPTS.labels(method='gemini').inc()
         start_time = time.time()
 
         try:
@@ -336,15 +333,18 @@ class ExtractorA:
 
             raw_json_str = None
             if hasattr(gemini_response, "content"):
-                raw_json_str = gemini_response.content
+                content = gemini_response.content
+                if isinstance(content, str):
+                    raw_json_str = content
+                elif isinstance(content, list):
+                    # Handle list content by joining
+                    raw_json_str = " ".join(str(item) for item in content if item)
+                else:
+                    raw_json_str = str(content)
             elif isinstance(gemini_response, str):
                 raw_json_str = gemini_response
             else:
                 raw_json_str = str(gemini_response)
-
-            # Ensure we have a string
-            if not isinstance(raw_json_str, str):
-                raw_json_str = str(raw_json_str)
 
             # CLEAN THE OUTPUT
             clean_json_str = self._clean_llm_json_output(raw_json_str)
@@ -354,43 +354,29 @@ class ExtractorA:
                 logger.warning("Empty response after cleaning")
                 return Reports(reports=[])
 
-            # After cleaning, try to parse
+            # After cleaning, try to parse:
             try:
                 reports = Reports.model_validate_json(clean_json_str)
                 logger.info(f"✅ Gemini extracted {len(reports.reports)} reports")
-                EXTRACTION_SUCCESS.labels(method='gemini').inc()
-                EXTRACTION_DURATION.labels(method='gemini').observe(time.time() - start_time)
                 return self.post_process_reports(reports)
-
             except ValidationError as e:
                 logger.warning(f"Gemini JSON validation failed: {e}")
-                logger.debug(f"Failed JSON: {clean_json_str}")
-
-                # Try to parse as plain JSON first
                 try:
                     obj = json.loads(clean_json_str)
                     if isinstance(obj, list):
-                        # Wrap list in reports object
                         wrapped = {"reports": obj}
                         reports = Reports.model_validate(wrapped)
-                        logger.info("✅ Gemini extracted reports from list format")
-                        EXTRACTION_SUCCESS.labels(method='gemini').inc()
-                        EXTRACTION_DURATION.labels(method='gemini').observe(time.time() - start_time)
+                        logger.info(f"✅ Gemini extracted {len(reports.reports)} reports (wrapped)")
                         return self.post_process_reports(reports)
-
                     elif isinstance(obj, dict) and "reports" in obj:
-                        # Already in correct format
                         reports = Reports.model_validate(obj)
-                        logger.info("✅ Gemini extracted reports from dict format")
-                        EXTRACTION_SUCCESS.labels(method='gemini').inc()
-                        EXTRACTION_DURATION.labels(method='gemini').observe(time.time() - start_time)
+                        logger.info(f"✅ Gemini extracted {len(reports.reports)} reports (dict)")
                         return self.post_process_reports(reports)
-
-                except json.JSONDecodeError:
-                    logger.warning("Gemini returned invalid JSON")
+                except Exception as e2:
+                    logger.warning(f"Gemini fallback parsing failed: {e2}")
 
                 # Final fallback: Create single report from plain text
-                logger.info("🔧 Creating single report from Gemini plain text")
+                logger.info("🔧 Creating single report from plain text (Gemini)")
                 single_report = {
                     "reports": [{
                         "event_type": self._infer_event_type(clean_json_str),
@@ -403,12 +389,10 @@ class ExtractorA:
                 }
                 try:
                     reports = Reports.model_validate_json(json.dumps(single_report))
-                    logger.info("✅ Created fallback report from Gemini text")
-                    EXTRACTION_SUCCESS.labels(method='gemini').inc()
-                    EXTRACTION_DURATION.labels(method='gemini').observe(time.time() - start_time)
+                    logger.info("✅ Created fallback report from plain text (Gemini)")
                     return self.post_process_reports(reports)
-                except Exception as e2:
-                    logger.error(f"Failed to create Gemini fallback report: {e2}")
+                except Exception as e3:
+                    logger.error(f"Failed to create fallback report (Gemini): {e3}")
                     return Reports(reports=[])
 
         except Exception as e:
@@ -428,4 +412,4 @@ class ExtractorA:
         else:
             logger.warning("⚠️ Perplexity returned no reports — falling back to Gemini")
             logger.info("🔍 Using Gemini as fallback extractor")
-        return await self.extract_from_gemini(input_text)
+            return await self.extract_from_gemini(input_text)

@@ -1,0 +1,36 @@
+{
+  "extractor": {
+    "total_time": 0.0006461143493652344,
+    "inputs_processed": 7,
+    "reports_extracted": 0,
+    "average_time_per_input": 9.23020499093192e-05,
+    "reports": []
+  },
+  "full_pipeline": {
+    "total_time": 0.0025949478149414062,
+    "custom_inputs": 7,
+    "extracted_reports": 0,
+    "verified_reports": 0,
+    "human_hotspots": 1,
+    "disaster_hotspots": 1,
+    "composite_hotspots": 1,
+    "hotspots": [
+      {
+        "latitude": 13.0827,
+        "longitude": 80.2707,
+        "aggregated_emotions": {
+          "fear": 0.8,
+          "panic": 0.6
+        },
+        "average_panic_level": 0.7,
+        "event_types": [
+          "flood"
+        ],
+        "severity_level": "high",
+        "risk_level": "critical",
+        "contributing_reports": 5
+      }
+    ],
+    "average_time_per_input": 0.0003707068307059152
+  }
+}
