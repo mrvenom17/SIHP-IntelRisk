@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast, ToastContainer } from 'react-toastify';
-import { Menu, Bell, Settings, User, LogOut, BarChart3, Search } from 'lucide-react';
+import { Menu, Bell, Settings, User, LogOut, ChartBar as BarChart3, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MapView from './MapView';
 import Navigation from './Navigation';
