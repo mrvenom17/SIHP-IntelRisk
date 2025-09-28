@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { pool } from '../config/database';
 import { validateRequest, schemas } from '../middleware/validation';
 import { authenticateToken } from '../middleware/auth';
+import { AuthRequest } from '../types';
 
 const router = Router();
 
@@ -100,11 +101,11 @@ router.post('/login', validateRequest(schemas.login), async (req, res) => {
   }
 });
 
-router.get('/me', authenticateToken, (req, res) => {
+router.get('/me', authenticateToken, (req: AuthRequest, res) => {
   res.json({ user: req.user });
 });
 
-router.post('/logout', authenticateToken, (req, res) => {
+router.post('/logout', authenticateToken, (req: AuthRequest, res) => {
   // In a production environment, you might want to blacklist the token
   res.json({ message: 'Logout successful' });
 });

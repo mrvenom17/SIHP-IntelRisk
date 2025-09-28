@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { pool } from '../config/database';
 import { authenticateToken, requireAnalyst } from '../middleware/auth';
 import { validateRequest, schemas } from '../middleware/validation';
+import { AuthRequest } from '../types';
 
 const router = Router();
 
 // Get all composite hotspots with filtering
-router.get('/composite', authenticateToken, async (req, res) => {
+router.get('/composite', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const {
       timeRange = '24h',
@@ -100,7 +101,7 @@ router.get('/composite', authenticateToken, async (req, res) => {
 });
 
 // Get hotspot by ID
-router.get('/composite/:id', authenticateToken, async (req, res) => {
+router.get('/composite/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     
@@ -142,7 +143,7 @@ router.get('/composite/:id', authenticateToken, async (req, res) => {
 });
 
 // Create human hotspot (analysts and admins only)
-router.post('/human', authenticateToken, requireAnalyst, validateRequest(schemas.hotspot), async (req, res) => {
+router.post('/human', authenticateToken, requireAnalyst, validateRequest(schemas.hotspot), async (req: AuthRequest, res) => {
   try {
     const { title, description, latitude, longitude, severity, event_type } = req.body;
     const userId = req.user!.id;
@@ -165,7 +166,7 @@ router.post('/human', authenticateToken, requireAnalyst, validateRequest(schemas
 });
 
 // Get statistics
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const stats = await pool.query(`
       SELECT 

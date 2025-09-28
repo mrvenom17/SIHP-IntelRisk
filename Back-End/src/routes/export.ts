@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { authenticateToken } from '../middleware/auth';
+import { AuthRequest } from '../types';
 
 const router = Router();
 
 // Export hotspots as JSON
-router.get('/json', authenticateToken, async (req, res) => {
+router.get('/json', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const {
       timeRange = '24h',
@@ -80,7 +81,7 @@ router.get('/json', authenticateToken, async (req, res) => {
 });
 
 // Export hotspots as CSV
-router.get('/csv', authenticateToken, async (req, res) => {
+router.get('/csv', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const {
       timeRange = '24h',

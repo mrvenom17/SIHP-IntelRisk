@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { authAPI } from '../services/api';
+import axios from 'axios';
 
 interface User {
   id: string;
@@ -35,14 +36,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // Verify token is still valid
           try {
-            await authAPI.getProfile();
+            const profileResponse = await authAPI.getProfile();
+            if (profileResponse.user) {
+              setUser(profileResponse.user);
+            }
           } catch (error) {
             // Token is invalid, clear storage
+            console.log('Token validation failed, clearing auth data');
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user');
             setUser(null);
           }
         } catch (error) {
+          console.error('Error parsing saved user data:', error);
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
           setUser(null);
@@ -56,6 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('Attempting login for:', email);
       const response = await authAPI.login({ email, password });
       const { user, token } = response;
       
@@ -63,6 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
     } catch (error: any) {
+      console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Login failed';
       throw new Error(errorMessage);
     }
@@ -70,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (email: string, password: string, name: string, role: string = 'viewer') => {
     try {
+      console.log('Attempting registration for:', email);
       const response = await authAPI.register({ email, password, name, role: role as any });
       const { user, token } = response;
       
@@ -77,12 +86,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
     } catch (error: any) {
+      console.error('Registration error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
       throw new Error(errorMessage);
     }
   };
 
   const logout = () => {
+    console.log('Logging out user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     setUser(null);

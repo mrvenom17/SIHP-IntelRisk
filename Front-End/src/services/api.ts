@@ -29,10 +29,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', error.response?.data || error.message);
     if (error.response?.status === 401) {
+      console.log('Unauthorized - clearing auth data');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
-      window.location.reload();
+      // Don't reload immediately, let the auth context handle it
+      setTimeout(() => window.location.reload(), 100);
     }
     return Promise.reject(error);
   }
@@ -95,8 +98,19 @@ export const authAPI = {
 // Hotspots API
 export const hotspotsAPI = {
   getCompositeHotspots: async (filters: HotspotFilters = {}) => {
+    try {
     const response = await api.get('/hotspots/composite', { params: filters });
     return response.data;
+    } catch (error) {
+      console.error('Failed to fetch from API, falling back to mock data');
+      // Fallback to mock data
+      const mockResponse = await fetch('/src/data/mockHotspots.json');
+      if (mockResponse.ok) {
+        return await mockResponse.json();
+      }
+      // If mock data also fails, return empty
+      return { hotspots: [] };
+    }
   },
 
   getHotspotById: async (id: string) => {

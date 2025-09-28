@@ -1,12 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { Hotspot, FilterState } from '../types';
 import HotspotTooltip from './HotspotTooltip';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default markers in React Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface MapViewProps {
   hotspots: Hotspot[];
   filters: FilterState;
 }
+
+// Custom marker icons for different severity levels
+const createCustomIcon = (severity: string, eventType: string) => {
+  const colors = {
+    critical: '#DC2626',
+    high: '#EA580C',
+    medium: '#D97706',
+    low: '#059669'
+  };
+
+  const color = colors[severity as keyof typeof colors] || '#6B7280';
+  
+  return L.divIcon({
+    html: `
+      <div style="
+        background-color: ${color};
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+        font-weight: bold;
+      ">
+        ${getEventIcon(eventType)}
+      </div>
+    `,
+    className: 'custom-div-icon',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  });
+};
+
+const getEventIcon = (eventType: string) => {
+  switch (eventType) {
+    case 'earthquake': return '🌍';
+    case 'flood': return '🌊';
+    case 'fire': return '🔥';
+    case 'storm': return '⛈️';
+    default: return '⚠️';
+  }
+};
+
+// Component to handle map updates
+const MapUpdater: React.FC<{ hotspots: Hotspot[] }> = ({ hotspots }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (hotspots.length > 0) {
+      const group = new L.FeatureGroup(
+        hotspots.map(hotspot => 
+          L.marker([hotspot.latitude, hotspot.longitude])
+        )
+      );
+      map.fitBounds(group.getBounds().pad(0.1));
+    }
+  }, [hotspots, map]);
+
+  return null;
+};
 
 const MapView: React.FC<MapViewProps> = ({ hotspots, filters }) => {
   const [hoveredHotspot, setHoveredHotspot] = useState<Hotspot | null>(null);
@@ -25,139 +100,92 @@ const MapView: React.FC<MapViewProps> = ({ hotspots, filters }) => {
     return true;
   });
 
-  const handleMouseMove = (event: React.MouseEvent) => {
-    setMousePosition({ x: event.clientX, y: event.clientY });
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical': return '#DC2626';
-      case 'high': return '#EA580C';
-      case 'medium': return '#D97706';
-      case 'low': return '#059669';
-      default: return '#6B7280';
-    }
-  };
-
-  const getEventIcon = (eventType: string) => {
-    switch (eventType) {
-      case 'earthquake': return '🌍';
-      case 'flood': return '🌊';
-      case 'fire': return '🔥';
-      case 'storm': return '⛈️';
-      default: return '⚠️';
-    }
-  };
-
-  // Convert lat/lng to screen coordinates (simplified projection)
-  const projectToScreen = (lat: number, lng: number, width: number, height: number) => {
-    const x = ((lng + 180) / 360) * width;
-    const y = ((90 - lat) / 180) * height;
-    return { x, y };
-  };
-
   return (
-    <div className="relative h-full w-full bg-slate-900 overflow-hidden" onMouseMove={handleMouseMove}>
-      {/* World Map Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        {/* Grid overlay for map-like appearance */}
-        <div className="absolute inset-0 opacity-10">
-          <svg width="100%" height="100%">
-            <defs>
-              <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#14B8A6" strokeWidth="0.5"/>
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+    <div className="relative h-full w-full">
+      <MapContainer
+        center={[20, 0]}
+        zoom={2}
+        style={{ height: '100%', width: '100%' }}
+        className="z-0"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
         
-        {/* Continent outlines (simplified) */}
-        <div className="absolute inset-0 opacity-20">
-          <svg width="100%" height="100%" viewBox="0 0 1000 500">
-            {/* Simplified continent shapes */}
-            <path d="M150,200 Q200,180 250,200 Q300,220 350,200 Q400,180 450,200 L450,300 Q400,320 350,300 Q300,280 250,300 Q200,320 150,300 Z" 
-                  fill="none" stroke="#14B8A6" strokeWidth="1"/>
-            <path d="M500,150 Q550,130 600,150 Q650,170 700,150 Q750,130 800,150 L800,250 Q750,270 700,250 Q650,230 600,250 Q550,270 500,250 Z" 
-                  fill="none" stroke="#14B8A6" strokeWidth="1"/>
-          </svg>
-        </div>
-      </div>
-
-      {/* Hotspot Markers */}
-      <div className="absolute inset-0">
-        {filteredHotspots.map((hotspot) => {
-          const screenPos = projectToScreen(
-            hotspot.latitude, 
-            hotspot.longitude, 
-            window.innerWidth, 
-            window.innerHeight
-          );
-          
-          const size = hotspot.severity === 'critical' ? 40 : 
-                      hotspot.severity === 'high' ? 32 : 
-                      hotspot.severity === 'medium' ? 24 : 16;
-          
-          const color = getSeverityColor(hotspot.severity);
-          
-          return (
-            <motion.div
-              key={hotspot.id}
-              className="absolute cursor-pointer"
-              style={{
-                left: screenPos.x - size / 2,
-                top: screenPos.y - size / 2,
-              }}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, delay: Math.random() * 0.5 }}
-              onMouseEnter={() => setHoveredHotspot(hotspot)}
-              onMouseLeave={() => setHoveredHotspot(null)}
-            >
-              {/* Pulsing background */}
-              <motion.div
-                className="absolute inset-0 rounded-full"
-                style={{ backgroundColor: color }}
-                animate={{ 
-                  scale: [1, 1.5, 1],
-                  opacity: [0.3, 0.1, 0.3]
-                }}
-                transition={{ 
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-              
-              {/* Main marker */}
-              <motion.div
-                className="relative rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white font-bold"
-                style={{ 
-                  width: size,
-                  height: size,
-                  backgroundColor: color,
-                  boxShadow: `0 0 20px ${color}60`
-                }}
-                whileHover={{ scale: 1.2 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <span className="text-xs">
-                  {getEventIcon(hotspot.eventType)}
-                </span>
-              </motion.div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <AnimatePresence>
-        {hoveredHotspot && (
-          <HotspotTooltip
-            hotspot={hoveredHotspot}
-            position={mousePosition}
-          />
-        )}
-      </AnimatePresence>
+        <MapUpdater hotspots={filteredHotspots} />
+        
+        {filteredHotspots.map((hotspot) => (
+          <Marker
+            key={hotspot.id}
+            position={[hotspot.latitude, hotspot.longitude]}
+            icon={createCustomIcon(hotspot.severity, hotspot.eventType)}
+          >
+            <Popup>
+              <div className="p-2 min-w-[250px]">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-gray-800">{hotspot.title}</h3>
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    hotspot.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                    hotspot.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                    hotspot.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {hotspot.severity.toUpperCase()}
+                  </span>
+                </div>
+                
+                <p className="text-gray-600 text-sm mb-3">{hotspot.description}</p>
+                
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="font-medium">Panic Score:</span>
+                    <span className="ml-1 text-red-600">{hotspot.panicScore}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Sources:</span>
+                    <span className="ml-1 text-blue-600">{hotspot.sources}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Confidence:</span>
+                    <span className="ml-1 text-green-600">{hotspot.confidence}%</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Time:</span>
+                    <span className="ml-1 text-gray-600">
+                      {new Date(hotspot.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="mt-3 pt-2 border-t border-gray-200">
+                  <h4 className="font-medium text-xs text-gray-700 mb-1">Emotions</h4>
+                  <div className="space-y-1">
+                    {Object.entries(hotspot.emotions).map(([emotion, value]) => (
+                      <div key={emotion} className="flex items-center justify-between text-xs">
+                        <span className="capitalize text-gray-600">{emotion}</span>
+                        <div className="flex items-center">
+                          <div className="w-8 h-1 bg-gray-200 rounded-full mr-1">
+                            <div 
+                              className={`h-full rounded-full ${
+                                emotion === 'panic' ? 'bg-red-400' :
+                                emotion === 'fear' ? 'bg-orange-400' :
+                                emotion === 'anger' ? 'bg-red-600' : 'bg-blue-400'
+                              }`}
+                              style={{ width: `${value}%` }}
+                            />
+                          </div>
+                          <span className="text-gray-700 w-6 text-right">{value}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
 
       {/* Map Layer Controls */}
       <div className="absolute top-4 right-4 z-10 space-y-2">

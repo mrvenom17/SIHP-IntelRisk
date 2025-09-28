@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { validateRequest, schemas } from '../middleware/validation';
 import { factCheckService } from '../services/factCheckService';
+import { AuthRequest } from '../types';
 
 const router = Router();
 
 // Submit content for fact checking
-router.post('/', authenticateToken, validateRequest(schemas.factCheck), async (req, res) => {
+router.post('/', authenticateToken, validateRequest(schemas.factCheck), async (req: AuthRequest, res) => {
   try {
     const { content, url } = req.body;
     const userId = req.user!.id;
@@ -25,7 +26,7 @@ router.post('/', authenticateToken, validateRequest(schemas.factCheck), async (r
 });
 
 // Get fact check result
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
@@ -44,7 +45,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Get user's fact check history
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const userId = req.user!.id;
     const limit = parseInt(req.query.limit as string) || 50;

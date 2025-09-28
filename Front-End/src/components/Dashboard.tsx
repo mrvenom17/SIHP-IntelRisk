@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { toast, ToastContainer } from 'react-toastify';
 import { Menu, Bell, Settings, User, LogOut, BarChart3, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MapView from './MapView';
@@ -7,6 +8,7 @@ import Navigation from './Navigation';
 import { useAuth } from '../hooks/useAuth';
 import { hotspotsAPI } from '../services/api';
 import { Hotspot, FilterState } from '../types';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -32,6 +34,7 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching hotspots with filters:', { timeRange: filters.timeRange, confidenceMin: filters.confidenceMin });
       
       const response = await hotspotsAPI.getCompositeHotspots({
         timeRange: filters.timeRange,
@@ -40,9 +43,12 @@ const Dashboard: React.FC = () => {
       });
       
       setHotspots(response.hotspots || []);
+      console.log('Fetched hotspots:', response.hotspots?.length || 0);
     } catch (error: any) {
       console.error('Error fetching hotspots:', error);
-      setError('Failed to load hotspots. Please try again.');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to load hotspots';
+      setError(errorMessage);
+      toast.error(errorMessage);
       
       // Fallback to mock data if API fails
       const mockHotspots: Hotspot[] = [
@@ -76,12 +82,14 @@ const Dashboard: React.FC = () => {
         }
       ];
       setHotspots(mockHotspots);
+      toast.info('Using mock data due to API error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
+    toast.success('Logged out successfully');
     logout();
   };
 
@@ -92,6 +100,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="h-screen bg-slate-900 flex flex-col overflow-hidden">
+      <ToastContainer position="top-right" theme="dark" />
       {/* Header */}
       <motion.header
         initial={{ y: -100 }}
